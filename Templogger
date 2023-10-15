@@ -1,0 +1,110 @@
+// Include the libraries we need
+#include <OneWire.h>
+#include <DallasTemperature.h>
+#include <SPI.h>
+#include <SD.h>
+#include "RTClib.h"
+
+// Data wire is plugged into port 2 on the Arduino
+#define ONE_WIRE_BUS 2
+
+const int chipSelect = 9;  // SPI chipSelect for SD card reader
+
+RTC_DS1307 rtc;
+
+OneWire oneWire(ONE_WIRE_BUS);
+
+DallasTemperature sensors(&oneWire);
+
+
+void setup(void) {
+
+  Serial.begin(9600);
+
+  // Start up RTC
+  if (!rtc.begin()) {
+    Serial.println("Couldn't find RTC");
+    Serial.flush();
+    while (1) delay(10);
+  }
+  //rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+
+  // Start up DS18B20
+  sensors.begin();
+
+  // Start Sd card rader
+  if (!SD.begin(chipSelect)) {
+    Serial.println("Card failed, or not present");
+    // don't do anything more:
+    while (1)
+      ;
+  }
+  Serial.println("Card initialized.");
+}
+
+
+void loop(void) {
+  DateTime now = rtc.now();
+  if (now.second() % 30 == 0) {
+    // call sensors.requestTemperatures() to issue a global temperature
+    // request to all devices on the bus
+    Serial.print("Requesting temperatures...");
+    sensors.requestTemperatures();  // Send the command to get temperatures
+    Serial.println("DONE");
+    // After we got the temperatures, we can print them here.
+    // We use the function ByIndex, and as an example get the temperature from the first sensor only.
+    float tempC1 = sensors.getTempCByIndex(0);
+    float tempC2 = sensors.getTempCByIndex(1);
+
+    // Check if reading was successful
+    if (tempC1 != DEVICE_DISCONNECTED_C || tempC2 != DEVICE_DISCONNECTED_C) {
+      Serial.print("Temperature for the device 1 (index 0) is: ");
+      Serial.println(tempC1);
+      Serial.print("Temperature for the device 2 (index 1) is: ");
+      Serial.println(tempC2);
+    }
+
+    else {
+      Serial.println("Error: Could not read temperature data");
+    }
+
+    File dataFile = SD.open("datalog.csv", FILE_WRITE);
+    if (dataFile) {
+      dataFile.print(now.day(), DEC);
+      dataFile.print("/");
+      dataFile.print(now.month(), DEC);
+      dataFile.print(",");
+      dataFile.print(now.hour(), DEC);
+      dataFile.print(":");
+      dataFile.print(now.minute(), DEC);
+      dataFile.print(":");
+      dataFile.print(now.second(), DEC);
+      dataFile.print(",");
+      dataFile.print(tempC1);
+      dataFile.print(",");
+      dataFile.println(tempC2);
+      dataFile.close();
+
+      // print to the serial port too:
+      Serial.print(now.day(), DEC);
+      Serial.print('/');
+      Serial.print(now.month(), DEC);
+      Serial.print(" (");
+      Serial.print(now.hour(), DEC);
+      Serial.print(':');
+      Serial.print(now.minute(), DEC);
+      Serial.print(':');
+      Serial.print(now.second(), DEC);
+      Serial.println(")");
+      Serial.println("Logged data");
+      Serial.println("");
+    }
+
+    // if the file isn't open, pop up an error:
+    else {
+      Serial.println("error opening datalog.csv");
+    }
+
+    delay(1000);
+  }
+}
