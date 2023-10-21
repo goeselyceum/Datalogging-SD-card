@@ -5,7 +5,7 @@
 #include <SD.h>
 #include "RTClib.h"
 
-// Data wire is plugged into port 2 on the Arduino
+// Data wire is plugged into port 2 on the Arduino (yellow wire)
 #define ONE_WIRE_BUS 2
 
 const int chipSelect = 9;  // SPI chipSelect for SD card reader
@@ -16,51 +16,60 @@ OneWire oneWire(ONE_WIRE_BUS);
 
 DallasTemperature sensors(&oneWire);
 
+int numberOfDevices;
+int interval = 15;  // meetinterval in seconden (60 moet deelbaar zijn door interval)
+
 
 void setup(void) {
 
   Serial.begin(9600);
 
   // Start up RTC
+  Serial.println("Start up RTC");
   if (!rtc.begin()) {
     Serial.println("Couldn't find RTC");
     Serial.flush();
     while (1) delay(10);
   }
   //rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+  Serial.println("RTC initialized");
 
   // Start up DS18B20
+  Serial.println("Start up DS18B20");
   sensors.begin();
+  numberOfDevices = sensors.getDeviceCount();
+  Serial.print("Found ");
+  Serial.print(numberOfDevices, DEC);
+  Serial.println(" devices.");
 
   // Start Sd card rader
+  Serial.println("Start up Card reader");
   if (!SD.begin(chipSelect)) {
     Serial.println("Card failed, or not present");
     // don't do anything more:
     while (1)
       ;
   }
-  Serial.println("Card initialized.");
+  Serial.println("Card reader initialized.");
+  Serial.println("");
 }
 
 
 void loop(void) {
   DateTime now = rtc.now();
-  if (now.second() % 30 == 0) {
+  if (now.second() % interval == 0) {
     // call sensors.requestTemperatures() to issue a global temperature
     // request to all devices on the bus
-    Serial.print("Requesting temperatures...");
-    sensors.requestTemperatures();  // Send the command to get temperatures
-    Serial.println("DONE");
-    // After we got the temperatures, we can print them here.
-    // We use the function ByIndex, and as an example get the temperature from the first sensor only.
+    Serial.println("Requesting temperatures...");
+    sensors.requestTemperatures();  // Send the command to get temperatures.
     float tempC1 = sensors.getTempCByIndex(0);
     float tempC2 = sensors.getTempCByIndex(1);
 
     // Check if reading was successful
     if (tempC1 != DEVICE_DISCONNECTED_C || tempC2 != DEVICE_DISCONNECTED_C) {
-      Serial.print("Temperature for the device 1 (index 0) is: ");
+      Serial.print("Temperature for the device 1 is: ");
       Serial.println(tempC1);
-      Serial.print("Temperature for the device 2 (index 1) is: ");
+      Serial.print("Temperature for the device 2 is: ");
       Serial.println(tempC2);
     }
 
